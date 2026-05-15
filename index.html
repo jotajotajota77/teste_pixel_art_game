@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <title>pixel art sandbox</title>
+  <style>
+    html, body {
+      margin: 0;
+      height: 100%;
+      background: #1a1a22;
+      color: #c8c8d0;
+      font-family: ui-monospace, "Cascadia Mono", Menlo, monospace;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      overflow: hidden;
+    }
+    canvas {
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      background: #000;
+      box-shadow: 0 0 0 2px #2a2a36, 0 12px 48px #0008;
+    }
+    #hint { font-size: 12px; opacity: .6; }
+    #hint kbd {
+      background: #2a2a36; border-radius: 3px; padding: 1px 5px;
+      border: 1px solid #3a3a48;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="screen"></canvas>
+  <div id="hint">
+    <kbd>WASD</kbd>/<kbd>setas</kbd> mover &nbsp;·&nbsp;
+    <kbd>espaço</kbd> ataque &nbsp;·&nbsp;
+    <kbd>F1</kbd> debug &nbsp;·&nbsp;
+    <kbd>F2</kbd> recarregar nível
+  </div>
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
