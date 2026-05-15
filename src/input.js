@@ -3,7 +3,7 @@ const KEY_ALIAS = {
   ArrowLeft: "left", ArrowRight: "right", ArrowUp: "up", ArrowDown: "down",
   KeyA: "left", KeyD: "right", KeyW: "up", KeyS: "down",
   Space: "attack", Enter: "attack",
-  F1: "F1", F2: "F2",
+  F1: "F1", F2: "F2", KeyP: "P",
 };
 
 export class Input {
@@ -35,4 +35,37 @@ export class Input {
   }
 
   endFrame() { this.justPressed.clear(); }
+}
+
+// Auto-walks the hero in a square pattern. Wraps a real Input — if the user
+// presses any movement key, it yields control until they release.
+export class AutoInput {
+  constructor(real) {
+    this.real = real;
+    this.t = 0;
+    this.seq = [
+      { dx: 0,  dy: 1,  dur: 1.5 },  // down
+      { dx: 1,  dy: 0,  dur: 1.5 },  // right
+      { dx: 0,  dy: -1, dur: 1.5 },  // up
+      { dx: -1, dy: 0,  dur: 1.5 },  // left
+    ];
+    this.idx = 0;
+  }
+  _step(dt) {
+    this.t += dt;
+    if (this.t >= this.seq[this.idx].dur) {
+      this.t = 0;
+      this.idx = (this.idx + 1) % this.seq.length;
+    }
+  }
+  tick(dt) { this._step(dt); }
+  down(name) { return this.real.down(name); }
+  pressed(name) { return this.real.pressed(name); }
+  axis() {
+    const a = this.real.axis();
+    if (a.x !== 0 || a.y !== 0) return a; // manual override
+    const s = this.seq[this.idx];
+    return { x: s.dx, y: s.dy };
+  }
+  endFrame() { this.real.endFrame(); }
 }
