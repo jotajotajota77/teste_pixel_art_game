@@ -2,9 +2,9 @@
 // simple animation, attack with cooldown, hurt iframes.
 //
 // Uses assets.images["mage_sheet.png"] when available — a 4x4 sheet of 32x32
-// frames. Row mapping: 0=down, 1=right (mirrored for left), 3=up.
+// frames. Row mapping: 0=down, 1=left (mirrored for right), 3=up.
 const SPRITE_SIZE = 32;
-const ROW = { down: 0, right: 1, left: 1, up: 3 };
+const ROW = { down: 0, left: 1, right: 1, up: 3 };
 
 export class Player {
   constructor(x, y, assets) {
@@ -146,7 +146,7 @@ export class Player {
     const moving = this.anim > 0;
     const frame = moving ? ((this.anim | 0) % 4) : 0;
     const row = ROW[this.facing];
-    const flip = this.facing === "left";
+    const flip = this.facing === "right";
 
     const sx = frame * SPRITE_SIZE;
     const sy = row * SPRITE_SIZE;
