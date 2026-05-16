@@ -7,6 +7,10 @@ const OPTIONAL = [
   "mage_cast.png",
   "mage_death.png",
   "mage_melee.png",
+  "fx_charge.png",
+  "fx_projectile.png",
+  "fx_impact.png",
+  "fx_burn.png",
 ];
 
 export async function loadAssets() {

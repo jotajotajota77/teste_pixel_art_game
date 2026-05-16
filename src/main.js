@@ -3,7 +3,7 @@ import { Input } from "./input.js";
 import { Camera } from "./camera.js";
 import { Tilemap } from "./tilemap.js";
 import { Player } from "./player.js";
-import { Slime, Coin, MagicBolt } from "./entities.js";
+import { Slime, Coin, MagicBolt, Impact, Burning } from "./entities.js";
 import { loadAssets } from "./assets.js";
 
 const TILE = 16;
@@ -18,7 +18,9 @@ const camera = new Camera(VIEW_W, VIEW_H);
 let assets, map, player, entities, debug = false, coinsCollected = 0;
 
 const world = {
-  spawnBolt(p) { entities.push(new MagicBolt(p)); },
+  spawnBolt(p) { entities.push(new MagicBolt(p, assets)); },
+  spawnImpact(x, y) { entities.push(new Impact(x, y, assets)); },
+  spawnBurning(x, y) { entities.push(new Burning(x, y, assets)); },
 };
 
 function buildLevel() {
@@ -84,6 +86,28 @@ function update(dt) {
     }
   }
 
+  // impact AOE damage to slimes
+  for (const im of entities) {
+    if (im.dead || im.kind !== "impact") continue;
+    const r = im.damageRect();
+    if (!r) continue;
+    for (const s of entities) {
+      if (s.dead || s.kind !== "slime") continue;
+      if (im.damaged.has(s)) continue;
+      if (aabb(r, s)) { s.dead = true; im.damaged.add(s); }
+    }
+  }
+
+  // burning patch damages slimes overlapping it (DoT)
+  for (const bn of entities) {
+    if (bn.dead || bn.kind !== "burning") continue;
+    if (!bn.consumeTick()) continue;
+    for (const s of entities) {
+      if (s.dead || s.kind !== "slime") continue;
+      if (aabb(bn, s)) s.dead = true;
+    }
+  }
+
   // player pickups + damage
   for (const e of entities) {
     if (e.dead) continue;
@@ -95,8 +119,17 @@ function update(dt) {
       player.hurt(1);
     }
   }
+  // when a bolt dies, spawn an impact at its position; when an impact dies,
+  // leave a burning patch behind
   for (let i = entities.length - 1; i >= 0; i--) {
-    if (entities[i].dead) entities.splice(i, 1);
+    const e = entities[i];
+    if (!e.dead) continue;
+    if (e.kind === "bolt") {
+      world.spawnImpact(e.x + e.w / 2, e.y + e.h / 2);
+    } else if (e.kind === "impact") {
+      world.spawnBurning(e.x + 16, e.y + 16);
+    }
+    entities.splice(i, 1);
   }
 
   camera.follow(player.x + player.w / 2, player.y + player.h / 2, map.pixelW, map.pixelH);

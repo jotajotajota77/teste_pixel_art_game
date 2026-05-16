@@ -7,20 +7,36 @@ const DIR_VEC = {
   right: { x: 1,  y: 0 },
 };
 
+const BOLT_FW = 24, BOLT_FH = 20;
+const IMPACT_FW = 32, IMPACT_FH = 32;
+const BURN_FW = 14, BURN_FH = 14;
+const IMPACT_DUR = 0.42;
+const BURN_DUR = 1.6;
+
+// Rotation angle so the projectile's "forward" (positive x in sheet) points
+// in the requested direction.
+const DIR_ANGLE = {
+  right: 0,
+  down:  Math.PI / 2,
+  left:  Math.PI,
+  up:    -Math.PI / 2,
+};
+
 export class MagicBolt {
-  constructor(player) {
+  constructor(player, assets) {
     this.kind = "bolt";
+    this.facing = player.facing;
     const d = DIR_VEC[player.facing];
-    // spawn at the player's hand position, offset toward facing direction
-    this.x = player.x + player.w / 2 - 3 + d.x * 6;
-    this.y = player.y + player.h / 2 - 6 + d.y * 6;
-    this.w = 6;
-    this.h = 6;
+    this.x = player.x + player.w / 2 - 4 + d.x * 8;
+    this.y = player.y + player.h / 2 - 4 + d.y * 8;
+    this.w = 8;
+    this.h = 8;
     this.vx = d.x * 140;
     this.vy = d.y * 140;
-    this.life = 0.7;
+    this.life = 0.9;
     this.t = 0;
     this.dead = false;
+    this.sheet = assets?.images?.["fx_projectile.png"] || null;
   }
   update(dt, _player, map) {
     this.t += dt;
@@ -33,24 +49,97 @@ export class MagicBolt {
     this.y = ny;
   }
   draw(ctx, camera) {
-    const px = Math.round(this.x - camera.x);
-    const py = Math.round(this.y - camera.y);
+    const cx = Math.round(this.x + this.w / 2 - camera.x);
+    const cy = Math.round(this.y + this.h / 2 - camera.y);
+    if (this.sheet) {
+      const frame = ((this.t * 14) | 0) % 4;
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(DIR_ANGLE[this.facing] ?? 0);
+      ctx.drawImage(this.sheet, frame * BOLT_FW, 0, BOLT_FW, BOLT_FH,
+                    -BOLT_FW / 2, -BOLT_FH / 2, BOLT_FW, BOLT_FH);
+      ctx.restore();
+      return;
+    }
+    // procedural fallback
     const flick = ((this.t * 20) | 0) % 2;
-    // glow
     ctx.fillStyle = "rgba(255,220,120,0.35)";
-    ctx.fillRect(px - 2, py - 2, 10, 10);
-    // core
-    ctx.fillStyle = "#fff7c4";
-    ctx.fillRect(px + 1, py + 1, 4, 4);
-    ctx.fillStyle = "#fde36a";
-    ctx.fillRect(px, py + 2, 1, 2);
-    ctx.fillRect(px + 5, py + 2, 1, 2);
-    ctx.fillRect(px + 2, py, 2, 1);
-    ctx.fillRect(px + 2, py + 5, 2, 1);
-    // sparkle
-    if (flick) {
-      ctx.fillStyle = "#fff";
-      ctx.fillRect(px + 2, py + 2, 1, 1);
+    ctx.fillRect(cx - 5, cy - 5, 10, 10);
+    ctx.fillStyle = flick ? "#fff7c4" : "#fde36a";
+    ctx.fillRect(cx - 2, cy - 2, 4, 4);
+  }
+}
+
+export class Impact {
+  constructor(x, y, assets) {
+    this.kind = "impact";
+    this.x = x - IMPACT_FW / 2;
+    this.y = y - IMPACT_FH / 2;
+    this.w = 16;
+    this.h = 16;
+    this.t = 0;
+    this.dead = false;
+    this.sheet = assets?.images?.["fx_impact.png"] || null;
+    this.damaged = new Set(); // slimes already damaged by this burst
+  }
+  update(dt) {
+    this.t += dt;
+    if (this.t >= IMPACT_DUR) this.dead = true;
+  }
+  // small AOE damage in the first 1/3 of the impact
+  damageRect() {
+    if (this.t > IMPACT_DUR * 0.4) return null;
+    return { x: this.x + 4, y: this.y + 4, w: IMPACT_FW - 8, h: IMPACT_FH - 8 };
+  }
+  draw(ctx, camera) {
+    if (!this.sheet) return;
+    const p = Math.min(0.999, this.t / IMPACT_DUR);
+    const frame = Math.floor(p * 6);
+    const dx = Math.round(this.x - camera.x);
+    const dy = Math.round(this.y - camera.y);
+    ctx.drawImage(this.sheet, frame * IMPACT_FW, 0, IMPACT_FW, IMPACT_FH,
+                  dx, dy, IMPACT_FW, IMPACT_FH);
+  }
+}
+
+export class Burning {
+  constructor(x, y, assets) {
+    this.kind = "burning";
+    this.x = x - BURN_FW / 2;
+    this.y = y - BURN_FH / 2 + 4;
+    this.w = BURN_FW;
+    this.h = BURN_FH - 4;
+    this.t = 0;
+    this.dead = false;
+    this.sheet = assets?.images?.["fx_burn.png"] || null;
+    this.tickAccum = 0;
+  }
+  update(dt) {
+    this.t += dt;
+    this.tickAccum += dt;
+    if (this.t >= BURN_DUR) this.dead = true;
+  }
+  // tick once every 0.3s for DoT
+  consumeTick() {
+    if (this.tickAccum >= 0.3) {
+      this.tickAccum = 0;
+      return true;
+    }
+    return false;
+  }
+  draw(ctx, camera) {
+    const dx = Math.round(this.x - camera.x);
+    const dy = Math.round(this.y - camera.y);
+    if (this.sheet) {
+      const frame = ((this.t * 10) | 0) % 4;
+      const fadeOut = this.t > BURN_DUR - 0.3;
+      if (fadeOut) ctx.globalAlpha = Math.max(0, (BURN_DUR - this.t) / 0.3);
+      ctx.drawImage(this.sheet, frame * BURN_FW, 0, BURN_FW, BURN_FH,
+                    dx, dy, BURN_FW, BURN_FH);
+      ctx.globalAlpha = 1;
+    } else {
+      ctx.fillStyle = "#e54b4b";
+      ctx.fillRect(dx + 4, dy + 4, 6, 6);
     }
   }
 }

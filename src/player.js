@@ -33,6 +33,7 @@ export class Player {
     this.castSheet = assets?.images?.["mage_cast.png"] || null;
     this.deathSheet = assets?.images?.["mage_death.png"] || null;
     this.meleeSheet = assets?.images?.["mage_melee.png"] || null;
+    this.chargeSheet = assets?.images?.["fx_charge.png"] || null;
     this.sheet = this.walkSheet; // fallback gate for procedural draw
     this.idleTime = 0;
     this.castTime = 0;       // 0 = not casting, advances to CAST_DUR
@@ -138,6 +139,10 @@ export class Player {
     // sprite-based draw using the mage sheet, when loaded
     if (this.sheet) {
       this._drawSprite(ctx, px, py);
+      // draw charge FX above the player during cast wind-up
+      if (this.castTime > 0 && this.castTime < CAST_FIRE_AT && this.chargeSheet) {
+        this._drawChargeFX(ctx, px, py);
+      }
       return;
     }
 
@@ -204,6 +209,19 @@ export class Player {
       ctx.fillStyle = "#fff";
       ctx.fillRect(sx + 1, sy + 1, sw - 2, sh - 2);
     }
+  }
+
+  _drawChargeFX(ctx, px, py) {
+    const FW = 24, FH = 24;
+    const p = Math.min(0.999, this.castTime / CAST_FIRE_AT);
+    const frame = Math.floor(p * 4);
+    // staff tip offset by facing
+    let cx = px + this.w / 2 - FW / 2;
+    let cy = py - 8;
+    if (this.facing === "left")  { cx -= 8; cy += 4; }
+    if (this.facing === "right") { cx += 8; cy += 4; }
+    if (this.facing === "up")    { cy -= 2; }
+    ctx.drawImage(this.chargeSheet, frame * FW, 0, FW, FH, Math.round(cx), Math.round(cy), FW, FH);
   }
 
   // Hit rect for the melee swing during its active frame. Returns null when
