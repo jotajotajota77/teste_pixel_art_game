@@ -21,7 +21,10 @@ export class Player {
     this.attackCd = 0;
     this.attacking = false;
     this.assets = assets;
-    this.sheet = assets?.images?.["mage_sheet.png"] || null;
+    this.walkSheet = assets?.images?.["mage_sheet.png"] || null;
+    this.idleSheet = assets?.images?.["mage_idle.png"] || null;
+    this.sheet = this.walkSheet; // fallback gate for procedural draw
+    this.idleTime = 0;
   }
 
   hurt(n) {
@@ -53,8 +56,10 @@ export class Player {
       if (Math.abs(mx) > Math.abs(my)) this.facing = mx > 0 ? "right" : "left";
       else this.facing = my > 0 ? "down" : "up";
       this.anim += dt * 8;
+      this.idleTime = 0;
     } else {
       this.anim = 0;
+      this.idleTime += dt;
     }
 
     // axis-separated collision
@@ -144,7 +149,12 @@ export class Player {
 
   _drawSprite(ctx, px, py) {
     const moving = this.anim > 0;
-    const frame = moving ? ((this.anim | 0) % 4) : 0;
+    const useIdle = !moving && this.idleSheet;
+    const sheet = useIdle ? this.idleSheet : this.walkSheet;
+    // walk cycles 4 frames at ~8fps, idle cycles 4 frames at ~3fps (breathing)
+    const frame = moving
+      ? ((this.anim | 0) % 4)
+      : ((this.idleTime * 3) | 0) % 4;
     const row = ROW[this.facing];
     const flip = this.facing === "right";
 
@@ -163,11 +173,11 @@ export class Player {
       ctx.save();
       ctx.translate(Math.round(dx + SPRITE_SIZE), Math.round(dy));
       ctx.scale(-1, 1);
-      ctx.drawImage(this.sheet, sx, sy, SPRITE_SIZE, SPRITE_SIZE, 0, 0, SPRITE_SIZE, SPRITE_SIZE);
+      ctx.drawImage(sheet, sx, sy, SPRITE_SIZE, SPRITE_SIZE, 0, 0, SPRITE_SIZE, SPRITE_SIZE);
       ctx.restore();
     } else {
       ctx.drawImage(
-        this.sheet, sx, sy, SPRITE_SIZE, SPRITE_SIZE,
+        sheet, sx, sy, SPRITE_SIZE, SPRITE_SIZE,
         Math.round(dx), Math.round(dy), SPRITE_SIZE, SPRITE_SIZE
       );
     }

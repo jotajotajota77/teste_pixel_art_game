@@ -2,6 +2,8 @@
 <html lang="pt-br">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#1a1a22" />
   <title>pixel art sandbox</title>
   <style>
     html, body {
@@ -10,12 +12,21 @@
       background: #1a1a22;
       color: #c8c8d0;
       font-family: ui-monospace, "Cascadia Mono", Menlo, monospace;
+      overflow: hidden;
+      overscroll-behavior: none;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body {
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       gap: 8px;
-      overflow: hidden;
+      height: 100dvh;
+      padding-bottom: env(safe-area-inset-bottom);
     }
     canvas {
       image-rendering: pixelated;
@@ -23,22 +34,100 @@
       background: #000;
       box-shadow: 0 0 0 2px #2a2a36, 0 12px 48px #0008;
     }
-    #hint { font-size: 12px; opacity: .6; }
+    #hint {
+      font-size: 11px;
+      opacity: .55;
+      text-align: center;
+      padding: 0 8px;
+    }
     #hint kbd {
-      background: #2a2a36; border-radius: 3px; padding: 1px 5px;
+      background: #2a2a36;
+      border-radius: 3px;
+      padding: 1px 5px;
       border: 1px solid #3a3a48;
+    }
+
+    /* Touch controls */
+    #touch {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 10;
+    }
+    .pad {
+      position: absolute;
+      bottom: max(24px, env(safe-area-inset-bottom));
+      pointer-events: none;
+    }
+    .pad.left  { left: 20px; }
+    .pad.right { right: 20px; }
+    .btn {
+      position: absolute;
+      width: 56px;
+      height: 56px;
+      border-radius: 14px;
+      background: rgba(40, 42, 56, 0.65);
+      border: 2px solid rgba(120, 130, 160, 0.55);
+      color: #d8dae6;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      font-weight: 700;
+      pointer-events: auto;
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      transition: transform 60ms, background 60ms;
+      box-shadow: 0 4px 10px #0008;
+    }
+    .btn.active {
+      background: rgba(80, 200, 140, 0.55);
+      transform: scale(0.94);
+    }
+    .pad.left .btn { left: 56px; top: -56px; }
+    .pad.left .btn[data-input="up"]    { top: -116px; }
+    .pad.left .btn[data-input="down"]  { top:    4px; }
+    .pad.left .btn[data-input="left"]  { left:   0; top: -56px; }
+    .pad.left .btn[data-input="right"] { left: 112px; top: -56px; }
+
+    .pad.right .btn { right: 0; top: -56px; }
+    .pad.right .btn[data-input="attack"] {
+      width: 72px; height: 72px;
+      background: rgba(200, 90, 90, 0.55);
+      border-color: rgba(240, 140, 140, 0.65);
+      font-size: 14px;
+      right: 0; top: -72px;
+    }
+    .pad.right .btn[data-input="attack"].active {
+      background: rgba(240, 140, 140, 0.85);
+    }
+
+    @media (hover: hover) and (pointer: fine) {
+      .pad { opacity: 0.35; }
     }
   </style>
 </head>
 <body>
   <canvas id="screen"></canvas>
   <div id="hint">
-    <kbd>P</kbd> auto/manual &nbsp;·&nbsp;
     <kbd>WASD</kbd>/<kbd>setas</kbd> mover &nbsp;·&nbsp;
     <kbd>espaço</kbd> ataque &nbsp;·&nbsp;
     <kbd>F1</kbd> debug &nbsp;·&nbsp;
     <kbd>F2</kbd> recarregar nível
   </div>
+
+  <div id="touch">
+    <div class="pad left">
+      <div class="btn" data-input="up">▲</div>
+      <div class="btn" data-input="left">◀</div>
+      <div class="btn" data-input="right">▶</div>
+      <div class="btn" data-input="down">▼</div>
+    </div>
+    <div class="pad right">
+      <div class="btn" data-input="attack">ATK</div>
+    </div>
+  </div>
+
   <script type="module" src="./src/main.js"></script>
 </body>
 </html>

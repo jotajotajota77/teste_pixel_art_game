@@ -1,5 +1,5 @@
 import { Renderer } from "./renderer.js";
-import { Input, AutoInput } from "./input.js";
+import { Input } from "./input.js";
 import { Camera } from "./camera.js";
 import { Tilemap } from "./tilemap.js";
 import { Player } from "./player.js";
@@ -11,12 +11,11 @@ const VIEW_W = 320;
 const VIEW_H = 180;
 
 const renderer = new Renderer(document.getElementById("screen"), VIEW_W, VIEW_H);
-const realInput = new Input();
-const autoInput = new AutoInput(realInput);
+const input = new Input();
+input.bindTouch();
 const camera = new Camera(VIEW_W, VIEW_H);
 
 let assets, map, player, entities, debug = false, coinsCollected = 0;
-let autoMode = true;
 
 function buildLevel() {
   map = Tilemap.generate(50, 30, TILE);
@@ -52,12 +51,8 @@ async function start() {
 }
 
 function update(dt) {
-  if (realInput.pressed("F1")) debug = !debug;
-  if (realInput.pressed("F2")) buildLevel();
-  if (realInput.pressed("P")) autoMode = !autoMode;
-
-  const input = autoMode ? autoInput : realInput;
-  if (autoMode) autoInput.tick(dt);
+  if (input.pressed("F1")) debug = !debug;
+  if (input.pressed("F2")) buildLevel();
 
   player.update(dt, input, map);
 
@@ -83,7 +78,7 @@ function update(dt) {
   }
 
   camera.follow(player.x + player.w / 2, player.y + player.h / 2, map.pixelW, map.pixelH);
-  realInput.endFrame();
+  input.endFrame();
 }
 
 function aabb(a, b) {
@@ -119,13 +114,6 @@ function drawHud(ctx) {
   ctx.font = "8px monospace";
   ctx.textBaseline = "top";
   ctx.fillText("x " + coinsCollected, VIEW_W - 20, 5);
-
-  if (autoMode) {
-    ctx.fillStyle = "#000";
-    ctx.fillRect(VIEW_W / 2 - 18, 3, 36, 10);
-    ctx.fillStyle = "#7ad8a6";
-    ctx.fillText("AUTO  P", VIEW_W / 2 - 14, 4);
-  }
 }
 
 function drawHeart(ctx, x, y, filled) {

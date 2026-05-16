@@ -35,37 +35,29 @@ export class Input {
   }
 
   endFrame() { this.justPressed.clear(); }
-}
 
-// Auto-walks the hero in a square pattern. Wraps a real Input — if the user
-// presses any movement key, it yields control until they release.
-export class AutoInput {
-  constructor(real) {
-    this.real = real;
-    this.t = 0;
-    this.seq = [
-      { dx: 0,  dy: 1,  dur: 1.5 },  // down
-      { dx: 1,  dy: 0,  dur: 1.5 },  // right
-      { dx: 0,  dy: -1, dur: 1.5 },  // up
-      { dx: -1, dy: 0,  dur: 1.5 },  // left
-    ];
-    this.idx = 0;
-  }
-  _step(dt) {
-    this.t += dt;
-    if (this.t >= this.seq[this.idx].dur) {
-      this.t = 0;
-      this.idx = (this.idx + 1) % this.seq.length;
+  // Bind on-screen touch buttons. Each element with data-input="<name>"
+  // toggles that input name in `held` on press/release.
+  bindTouch(root = document) {
+    const press = (name) => {
+      if (!this.held.has(name)) this.justPressed.add(name);
+      this.held.add(name);
+    };
+    const release = (name) => this.held.delete(name);
+
+    for (const el of root.querySelectorAll("[data-input]")) {
+      const name = el.dataset.input;
+      const onDown = (e) => { e.preventDefault(); press(name); el.classList.add("active"); };
+      const onUp = (e) => { e.preventDefault(); release(name); el.classList.remove("active"); };
+      el.addEventListener("pointerdown", onDown);
+      el.addEventListener("pointerup", onUp);
+      el.addEventListener("pointercancel", onUp);
+      el.addEventListener("pointerleave", (e) => {
+        if (e.buttons === 0) return;
+        release(name);
+        el.classList.remove("active");
+      });
+      el.addEventListener("contextmenu", (e) => e.preventDefault());
     }
   }
-  tick(dt) { this._step(dt); }
-  down(name) { return this.real.down(name); }
-  pressed(name) { return this.real.pressed(name); }
-  axis() {
-    const a = this.real.axis();
-    if (a.x !== 0 || a.y !== 0) return a; // manual override
-    const s = this.seq[this.idx];
-    return { x: s.dx, y: s.dy };
-  }
-  endFrame() { this.real.endFrame(); }
 }

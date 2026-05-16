@@ -3,6 +3,7 @@
 // them via assets.images[name].
 const OPTIONAL = [
   "mage_sheet.png",
+  "mage_idle.png",
 ];
 
 export async function loadAssets() {
