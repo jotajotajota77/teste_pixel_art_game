@@ -6,6 +6,7 @@ const OPTIONAL = [
   "mage_idle.png",
   "mage_cast.png",
   "mage_death.png",
+  "mage_melee.png",
 ];
 
 export async function loadAssets() {

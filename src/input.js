@@ -2,8 +2,9 @@
 const KEY_ALIAS = {
   ArrowLeft: "left", ArrowRight: "right", ArrowUp: "up", ArrowDown: "down",
   KeyA: "left", KeyD: "right", KeyW: "up", KeyS: "down",
-  Space: "attack", Enter: "attack",
-  F1: "F1", F2: "F2", KeyP: "P",
+  Space: "melee", Enter: "melee", KeyJ: "melee",
+  KeyK: "magic", ShiftLeft: "magic",
+  F1: "F1", F2: "F2",
 };
 
 export class Input {
@@ -13,7 +14,7 @@ export class Input {
     window.addEventListener("keydown", (e) => {
       const k = KEY_ALIAS[e.code];
       if (!k) return;
-      if (e.code === "F1" || e.code === "F2" || e.code === "Space") e.preventDefault();
+      if (e.code === "F1" || e.code === "F2" || e.code === "Space" || e.code === "ShiftLeft") e.preventDefault();
       if (!this.held.has(k)) this.justPressed.add(k);
       this.held.add(k);
     });

@@ -71,6 +71,19 @@ function update(dt) {
     }
   }
 
+  // melee swing vs slime
+  const hit = player.meleeHitRect();
+  if (hit) {
+    for (const s of entities) {
+      if (s.dead || s.kind !== "slime") continue;
+      if (player.meleeHit.has(s)) continue;
+      if (aabb(hit, s)) {
+        s.dead = true;
+        player.meleeHit.add(s);
+      }
+    }
+  }
+
   // player pickups + damage
   for (const e of entities) {
     if (e.dead) continue;

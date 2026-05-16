@@ -7,6 +7,9 @@ const SPRITE_SIZE = 32;
 const ROW = { down: 0, left: 1, right: 1, up: 3 };
 const CAST_DUR = 0.40;       // total cast animation length (s)
 const CAST_FIRE_AT = 0.20;   // moment the bolt spawns within the cast
+const MELEE_DUR = 0.32;      // total melee swing length (s)
+const MELEE_HIT_START = 0.14;
+const MELEE_HIT_END = 0.24;  // active damage window
 const DEATH_DUR = 1.2;       // full death animation (8 frames)
 const DEATH_LINGER = 0.8;    // corpse stays before respawn
 
@@ -29,10 +32,13 @@ export class Player {
     this.idleSheet = assets?.images?.["mage_idle.png"] || null;
     this.castSheet = assets?.images?.["mage_cast.png"] || null;
     this.deathSheet = assets?.images?.["mage_death.png"] || null;
+    this.meleeSheet = assets?.images?.["mage_melee.png"] || null;
     this.sheet = this.walkSheet; // fallback gate for procedural draw
     this.idleTime = 0;
     this.castTime = 0;       // 0 = not casting, advances to CAST_DUR
     this.castFired = false;  // bolt spawned this cast
+    this.meleeTime = 0;      // 0 = not swinging, advances to MELEE_DUR
+    this.meleeHit = new Set(); // slimes already hit by current swing
     this.dyingTime = 0;      // 0 = alive, >0 = dying
     this.spawnX = x;
     this.spawnY = y;
@@ -66,14 +72,18 @@ export class Player {
     this.iframes = Math.max(0, this.iframes - dt);
     this.attackCd = Math.max(0, this.attackCd - dt);
 
-    // start a cast (only when idle from previous cast)
-    if (input.pressed("attack") && this.castTime === 0 && this.attackCd === 0) {
-      this.castTime = 0.0001; // marks "casting"
+    const idle = this.castTime === 0 && this.meleeTime === 0 && this.attackCd === 0;
+    // start a melee swing
+    if (input.pressed("melee") && idle) {
+      this.meleeTime = 0.0001;
+      this.meleeHit.clear();
+      this.attackCd = MELEE_DUR + 0.05;
+    } else if (input.pressed("magic") && idle) {
+      this.castTime = 0.0001;
       this.castFired = false;
       this.attackCd = CAST_DUR + 0.10;
     }
 
-    // advance cast and spawn bolt at fire moment
     if (this.castTime > 0) {
       this.castTime += dt;
       if (!this.castFired && this.castTime >= CAST_FIRE_AT) {
@@ -82,13 +92,18 @@ export class Player {
       }
       if (this.castTime >= CAST_DUR) this.castTime = 0;
     }
-    this.attacking = this.castTime > 0 && this.castTime < CAST_FIRE_AT + 0.05;
+    if (this.meleeTime > 0) {
+      this.meleeTime += dt;
+      if (this.meleeTime >= MELEE_DUR) this.meleeTime = 0;
+    }
+    this.attacking = this.meleeTime > 0; // back-compat flag
 
     const a = input.axis();
     let mx = a.x, my = a.y;
     if (mx && my) { mx *= 0.7071; my *= 0.7071; }
-    // movement slows during cast
+    // movement slows during cast / melee
     if (this.castTime > 0) { mx *= 0.25; my *= 0.25; }
+    if (this.meleeTime > 0) { mx *= 0.45; my *= 0.45; }
 
     if (mx !== 0 || my !== 0) {
       if (Math.abs(mx) > Math.abs(my)) this.facing = mx > 0 ? "right" : "left";
@@ -191,6 +206,17 @@ export class Player {
     }
   }
 
+  // Hit rect for the melee swing during its active frame. Returns null when
+  // the swing is not in its damage window.
+  meleeHitRect() {
+    if (this.meleeTime < MELEE_HIT_START || this.meleeTime > MELEE_HIT_END) return null;
+    const reach = 10;
+    if (this.facing === "down")  return { x: this.x - 2, y: this.y + this.h, w: this.w + 4, h: reach };
+    if (this.facing === "up")    return { x: this.x - 2, y: this.y - reach, w: this.w + 4, h: reach };
+    if (this.facing === "left")  return { x: this.x - reach, y: this.y - 2, w: reach, h: this.h + 4 };
+    return { x: this.x + this.w, y: this.y - 2, w: reach, h: this.h + 4 };
+  }
+
   _drawDeath(ctx, px, py) {
     const p = Math.min(0.999, this.dyingTime / DEATH_DUR);
     const frame = Math.min(7, Math.floor(p * 8));
@@ -208,9 +234,14 @@ export class Player {
 
   _drawSprite(ctx, px, py) {
     const casting = this.castTime > 0 && this.castSheet;
+    const meleeing = this.meleeTime > 0 && this.meleeSheet;
     const moving = this.anim > 0;
     let sheet, frame;
-    if (casting) {
+    if (meleeing) {
+      sheet = this.meleeSheet;
+      const p = Math.min(0.999, this.meleeTime / MELEE_DUR);
+      frame = Math.floor(p * 4);
+    } else if (casting) {
       sheet = this.castSheet;
       const p = Math.min(0.999, this.castTime / CAST_DUR);
       frame = Math.floor(p * 4);
