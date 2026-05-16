@@ -3,7 +3,7 @@ import { Input } from "./input.js";
 import { Camera } from "./camera.js";
 import { Tilemap } from "./tilemap.js";
 import { Player } from "./player.js";
-import { Slime, Coin } from "./entities.js";
+import { Slime, Coin, MagicBolt } from "./entities.js";
 import { loadAssets } from "./assets.js";
 
 const TILE = 16;
@@ -16,6 +16,10 @@ input.bindTouch();
 const camera = new Camera(VIEW_W, VIEW_H);
 
 let assets, map, player, entities, debug = false, coinsCollected = 0;
+
+const world = {
+  spawnBolt(p) { entities.push(new MagicBolt(p)); },
+};
 
 function buildLevel() {
   map = Tilemap.generate(50, 30, TILE);
@@ -54,11 +58,20 @@ function update(dt) {
   if (input.pressed("F1")) debug = !debug;
   if (input.pressed("F2")) buildLevel();
 
-  player.update(dt, input, map);
+  player.update(dt, input, map, world);
 
   for (const e of entities) e.update(dt, player, map);
 
-  // pickup + damage resolution
+  // bolt vs slime
+  for (const b of entities) {
+    if (b.dead || b.kind !== "bolt") continue;
+    for (const s of entities) {
+      if (s.dead || s.kind !== "slime") continue;
+      if (aabb(b, s)) { s.dead = true; b.dead = true; break; }
+    }
+  }
+
+  // player pickups + damage
   for (const e of entities) {
     if (e.dead) continue;
     if (!aabb(player, e)) continue;
@@ -66,11 +79,7 @@ function update(dt) {
       e.dead = true;
       coinsCollected++;
     } else if (e.kind === "slime") {
-      if (player.attacking) {
-        e.dead = true;
-      } else {
-        player.hurt(1);
-      }
+      player.hurt(1);
     }
   }
   for (let i = entities.length - 1; i >= 0; i--) {

@@ -5,6 +5,10 @@
 // frames. Row mapping: 0=down, 1=left (mirrored for right), 3=up.
 const SPRITE_SIZE = 32;
 const ROW = { down: 0, left: 1, right: 1, up: 3 };
+const CAST_DUR = 0.40;       // total cast animation length (s)
+const CAST_FIRE_AT = 0.20;   // moment the bolt spawns within the cast
+const DEATH_DUR = 1.2;       // full death animation (8 frames)
+const DEATH_LINGER = 0.8;    // corpse stays before respawn
 
 export class Player {
   constructor(x, y, assets) {
@@ -23,34 +27,68 @@ export class Player {
     this.assets = assets;
     this.walkSheet = assets?.images?.["mage_sheet.png"] || null;
     this.idleSheet = assets?.images?.["mage_idle.png"] || null;
+    this.castSheet = assets?.images?.["mage_cast.png"] || null;
+    this.deathSheet = assets?.images?.["mage_death.png"] || null;
     this.sheet = this.walkSheet; // fallback gate for procedural draw
     this.idleTime = 0;
+    this.castTime = 0;       // 0 = not casting, advances to CAST_DUR
+    this.castFired = false;  // bolt spawned this cast
+    this.dyingTime = 0;      // 0 = alive, >0 = dying
+    this.spawnX = x;
+    this.spawnY = y;
   }
 
   hurt(n) {
-    if (this.iframes > 0) return;
+    if (this.iframes > 0 || this.dyingTime > 0) return;
     this.hp = Math.max(0, this.hp - n);
     this.iframes = 1.0;
     if (this.hp === 0) {
-      // respawn
-      this.hp = this.maxHp;
-      this.iframes = 1.5;
+      this.dyingTime = 0.0001;
+      this.castTime = 0;
+      this.attackCd = 0;
     }
   }
 
-  update(dt, input, map) {
+  update(dt, input, map, world) {
+    if (this.dyingTime > 0) {
+      this.dyingTime += dt;
+      if (this.dyingTime >= DEATH_DUR + DEATH_LINGER) {
+        // respawn
+        this.x = this.spawnX;
+        this.y = this.spawnY;
+        this.hp = this.maxHp;
+        this.dyingTime = 0;
+        this.iframes = 1.0;
+        this.facing = "down";
+      }
+      return;
+    }
     this.iframes = Math.max(0, this.iframes - dt);
     this.attackCd = Math.max(0, this.attackCd - dt);
-    this.attacking = this.attackCd > 0.18; // active during first ~180ms
 
-    if (input.pressed("attack") && this.attackCd === 0) {
-      this.attackCd = 0.30;
-      this.attacking = true;
+    // start a cast (only when idle from previous cast)
+    if (input.pressed("attack") && this.castTime === 0 && this.attackCd === 0) {
+      this.castTime = 0.0001; // marks "casting"
+      this.castFired = false;
+      this.attackCd = CAST_DUR + 0.10;
     }
+
+    // advance cast and spawn bolt at fire moment
+    if (this.castTime > 0) {
+      this.castTime += dt;
+      if (!this.castFired && this.castTime >= CAST_FIRE_AT) {
+        this.castFired = true;
+        if (world) world.spawnBolt(this);
+      }
+      if (this.castTime >= CAST_DUR) this.castTime = 0;
+    }
+    this.attacking = this.castTime > 0 && this.castTime < CAST_FIRE_AT + 0.05;
 
     const a = input.axis();
     let mx = a.x, my = a.y;
     if (mx && my) { mx *= 0.7071; my *= 0.7071; }
+    // movement slows during cast
+    if (this.castTime > 0) { mx *= 0.25; my *= 0.25; }
 
     if (mx !== 0 || my !== 0) {
       if (Math.abs(mx) > Math.abs(my)) this.facing = mx > 0 ? "right" : "left";
@@ -72,6 +110,12 @@ export class Player {
   draw(ctx, camera) {
     const px = Math.round(this.x - camera.x);
     const py = Math.round(this.y - camera.y);
+
+    // death takes priority over flicker / regular draw
+    if (this.dyingTime > 0 && this.deathSheet) {
+      this._drawDeath(ctx, px, py);
+      return;
+    }
 
     // flicker during iframes
     if (this.iframes > 0 && (this.iframes * 20 | 0) % 2 === 0) return;
@@ -147,14 +191,36 @@ export class Player {
     }
   }
 
+  _drawDeath(ctx, px, py) {
+    const p = Math.min(0.999, this.dyingTime / DEATH_DUR);
+    const frame = Math.min(7, Math.floor(p * 8));
+    const sx = frame * SPRITE_SIZE;
+    const dx = Math.round(px + (this.w - SPRITE_SIZE) / 2);
+    const dy = Math.round(py + this.h - SPRITE_SIZE + 2);
+    ctx.fillStyle = "rgba(0,0,0,0.4)";
+    ctx.fillRect(px + 1, py + this.h - 1, this.w - 2, 2);
+    ctx.drawImage(
+      this.deathSheet,
+      sx, 0, SPRITE_SIZE, SPRITE_SIZE,
+      dx, dy, SPRITE_SIZE, SPRITE_SIZE
+    );
+  }
+
   _drawSprite(ctx, px, py) {
+    const casting = this.castTime > 0 && this.castSheet;
     const moving = this.anim > 0;
-    const useIdle = !moving && this.idleSheet;
-    const sheet = useIdle ? this.idleSheet : this.walkSheet;
-    // walk cycles 4 frames at ~8fps, idle cycles 4 frames at ~3fps (breathing)
-    const frame = moving
-      ? ((this.anim | 0) % 4)
-      : ((this.idleTime * 3) | 0) % 4;
+    let sheet, frame;
+    if (casting) {
+      sheet = this.castSheet;
+      const p = Math.min(0.999, this.castTime / CAST_DUR);
+      frame = Math.floor(p * 4);
+    } else if (!moving && this.idleSheet) {
+      sheet = this.idleSheet;
+      frame = ((this.idleTime * 3) | 0) % 4;
+    } else {
+      sheet = this.walkSheet;
+      frame = ((this.anim | 0) % 4);
+    }
     const row = ROW[this.facing];
     const flip = this.facing === "right";
 
@@ -182,13 +248,5 @@ export class Player {
       );
     }
 
-    if (this.attacking) {
-      ctx.fillStyle = "rgba(255,240,160,0.9)";
-      const ax = this.facing === "left" ? px - 6 : this.facing === "right" ? px + this.w : px + 2;
-      const ay = this.facing === "up" ? py - 6 : this.facing === "down" ? py + this.h : py + 4;
-      const aw = (this.facing === "left" || this.facing === "right") ? 6 : 8;
-      const ah = (this.facing === "up" || this.facing === "down") ? 6 : 8;
-      ctx.fillRect(ax, ay, aw, ah);
-    }
   }
 }

@@ -1,4 +1,59 @@
 // Pickup + enemy entities. Slime wanders; chases when player is close.
+
+const DIR_VEC = {
+  down:  { x: 0,  y: 1 },
+  up:    { x: 0,  y: -1 },
+  left:  { x: -1, y: 0 },
+  right: { x: 1,  y: 0 },
+};
+
+export class MagicBolt {
+  constructor(player) {
+    this.kind = "bolt";
+    const d = DIR_VEC[player.facing];
+    // spawn at the player's hand position, offset toward facing direction
+    this.x = player.x + player.w / 2 - 3 + d.x * 6;
+    this.y = player.y + player.h / 2 - 6 + d.y * 6;
+    this.w = 6;
+    this.h = 6;
+    this.vx = d.x * 140;
+    this.vy = d.y * 140;
+    this.life = 0.7;
+    this.t = 0;
+    this.dead = false;
+  }
+  update(dt, _player, map) {
+    this.t += dt;
+    this.life -= dt;
+    if (this.life <= 0) { this.dead = true; return; }
+    const nx = this.x + this.vx * dt;
+    const ny = this.y + this.vy * dt;
+    if (map.rectSolid(nx, ny, this.w, this.h)) { this.dead = true; return; }
+    this.x = nx;
+    this.y = ny;
+  }
+  draw(ctx, camera) {
+    const px = Math.round(this.x - camera.x);
+    const py = Math.round(this.y - camera.y);
+    const flick = ((this.t * 20) | 0) % 2;
+    // glow
+    ctx.fillStyle = "rgba(255,220,120,0.35)";
+    ctx.fillRect(px - 2, py - 2, 10, 10);
+    // core
+    ctx.fillStyle = "#fff7c4";
+    ctx.fillRect(px + 1, py + 1, 4, 4);
+    ctx.fillStyle = "#fde36a";
+    ctx.fillRect(px, py + 2, 1, 2);
+    ctx.fillRect(px + 5, py + 2, 1, 2);
+    ctx.fillRect(px + 2, py, 2, 1);
+    ctx.fillRect(px + 2, py + 5, 2, 1);
+    // sparkle
+    if (flick) {
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(px + 2, py + 2, 1, 1);
+    }
+  }
+}
 export class Coin {
   constructor(x, y) {
     this.kind = "coin";
