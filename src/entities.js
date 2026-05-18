@@ -26,11 +26,12 @@ export class MagicBolt {
   constructor(player, assets) {
     this.kind = "bolt";
     this.facing = player.facing;
-    const d = DIR_VEC[player.facing];
-    this.x = player.x + player.w / 2 - 4 + d.x * 8;
-    this.y = player.y + player.h / 2 - 4 + d.y * 8;
     this.w = 8;
     this.h = 8;
+    const o = player.castOrigin();
+    const d = DIR_VEC[player.facing];
+    this.x = o.x - this.w / 2 + d.x * 4;
+    this.y = o.y - this.h / 2 + d.y * 4;
     this.vx = d.x * 140;
     this.vy = d.y * 140;
     this.life = 0.9;

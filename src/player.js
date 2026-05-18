@@ -215,13 +215,23 @@ export class Player {
     const FW = 24, FH = 24;
     const p = Math.min(0.999, this.castTime / CAST_FIRE_AT);
     const frame = Math.floor(p * 4);
-    // staff tip offset by facing
-    let cx = px + this.w / 2 - FW / 2;
-    let cy = py - 8;
-    if (this.facing === "left")  { cx -= 8; cy += 4; }
-    if (this.facing === "right") { cx += 8; cy += 4; }
-    if (this.facing === "up")    { cy -= 2; }
-    ctx.drawImage(this.chargeSheet, frame * FW, 0, FW, FH, Math.round(cx), Math.round(cy), FW, FH);
+    const o = this.castOrigin();
+    // px = this.x - camera.x, so world->screen is o - this + px
+    const cx = Math.round(o.x - this.x + px - FW / 2);
+    const cy = Math.round(o.y - this.y + py - FH / 2);
+    ctx.drawImage(this.chargeSheet, frame * FW, 0, FW, FH, cx, cy, FW, FH);
+  }
+
+  // World-space point where the magic orb / staff tip appears during cast.
+  // Aligned with the visible sprite (which extends above the collision box),
+  // not the box center.
+  castOrigin() {
+    let x = this.x + this.w / 2;
+    let y = this.y - 2; // ~chest height on the 32px sprite
+    if (this.facing === "left")  x -= 7;
+    else if (this.facing === "right") x += 7;
+    else if (this.facing === "up")    y -= 4;
+    return { x, y };
   }
 
   // Hit rect for the melee swing during its active frame. Returns null when
