@@ -1,9 +1,9 @@
 // Top-down player: 4-direction movement, AABB collision against tilemap,
 // simple animation, attack with cooldown, hurt iframes.
 //
-// Uses assets.images["mage_sheet.png"] when available — a 4x4 sheet of 32x32
-// frames. Row mapping: 0=down, 1=left (mirrored for right), 3=up.
-const SPRITE_SIZE = 32;
+// Uses assets.images["mage_sheet.png"] when available — a 4x4 sheet of
+// SPRITE_SIZE px frames. Row mapping: 0=down, 1=left (mirrored for right), 3=up.
+const SPRITE_SIZE = 64;
 const ROW = { down: 0, left: 1, right: 1, up: 3 };
 const CAST_DUR = 0.40;       // total cast animation length (s)
 const CAST_FIRE_AT = 0.20;   // moment the bolt spawns within the cast
@@ -227,9 +227,9 @@ export class Player {
   // not the box center.
   castOrigin() {
     let x = this.x + this.w / 2;
-    let y = this.y - 2; // ~chest height on the 32px sprite
-    if (this.facing === "left")  x -= 7;
-    else if (this.facing === "right") x += 7;
+    let y = this.y - 28; // ~chest height on the 64px sprite
+    if (this.facing === "left")  x -= 14;
+    else if (this.facing === "right") x += 14;
     else if (this.facing === "up")    y -= 4;
     return { x, y };
   }
